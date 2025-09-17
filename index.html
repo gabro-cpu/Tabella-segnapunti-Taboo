@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <title>Ciao Mondo</title>
+    <style>
+        body {
+            background: #000;
+            color: #fff;
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        #fadeImg {
+            opacity: 0;
+            transition: opacity 2s;
+            max-width: 80vw;
+            max-height: 80vh;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <audio id="gabroAudio" src="GabroIntro.mp3" hidden></audio>
+    <img id="fadeImg" src="testimage.png" alt="Test Image">
+    <script>
+        window.addEventListener('DOMContentLoaded', function() {
+            setTimeout(function() {
+                const audio = document.getElementById('gabroAudio');
+                audio.play();
+                audio.addEventListener('play', function() {
+                    document.getElementById('fadeImg').style.opacity = 1;
+                });
+            }, 600);
+        });
+    </script>
+</body>
+</html>
