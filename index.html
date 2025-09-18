@@ -8,8 +8,6 @@
             margin: 0;
             min-height: 100vh;
             font-family: Arial, sans-serif;
-            background: #000;
-            color: #fff;
         }
         #startScreen {
             background: #000;
@@ -23,6 +21,49 @@
             justify-content: center;
             z-index: 999;
         }
+        #playButton {
+            padding: 25px 70px;
+            font-size: 2.5em;
+            font-weight: bold;
+            color: white;
+            border: none;
+            border-radius: 15px;
+            cursor: pointer;
+            background: linear-gradient(135deg, #ff5722, #ff9800);
+            box-shadow: 0 0 25px rgba(255, 87, 34, 0.7);
+            transition: all 0.4s ease;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 10;
+            animation: rotateColors 8s linear infinite, pulse 2s ease-in-out infinite;
+        }
+        
+        #playButton:hover {
+            transform: translate(-50%, -50%) scale(1.1);
+            box-shadow: 0 0 40px rgba(255, 87, 34, 0.9);
+            animation: rotateColors 3s linear infinite, pulse 1s ease-in-out infinite;
+        }
+        
+        @keyframes rotateColors {
+            0% {
+                filter: hue-rotate(0deg);
+            }
+            100% {
+                filter: hue-rotate(360deg);
+            }
+        }
+        
+        @keyframes pulse {
+            0%, 100% {
+                box-shadow: 0 0 25px rgba(255, 87, 34, 0.7);
+            }
+            50% {
+                box-shadow: 0 0 40px rgba(255, 87, 34, 0.9), 0 0 60px rgba(255, 87, 34, 0.6);
+            }
+        }
+        
         #fadeImg {
             opacity: 0;
             transition: opacity 2s;
@@ -81,9 +122,17 @@
             border: none;
             color: #222;
             padding: 0 10px;
+            min-width: 180px;
+            text-align: center;
         }
-        #edit-left { left: calc(50% - 180px); }
-        #edit-right { right: calc(50% - 180px); }
+        /* Spostato più a destra */
+        #edit-left { 
+            left: calc(50% - 250px); 
+        }
+        /* Spostato più a sinistra */
+        #edit-right { 
+            right: calc(50% - 250px); 
+        }
         .score-section {
             position: absolute;
             top: 120px;
@@ -150,7 +199,7 @@
             gap: 20px;
         }
         .btn-group.right {
-            margin-left: -15cm;
+            margin-left: -15cm; /* Sposta i bottoni di destra di 15cm a sinistra */
         }
         .action-btn {
             font-size: 1.2em;
@@ -191,13 +240,14 @@
     <div id="startScreen">
         <img id="fadeImg" src="testimage.png" alt="Test Image">
         <img id="loadedImg" src="loaded.png" alt="Loaded Image">
+        <button id="playButton">GIOCA</button>
     </div>
     <!-- Schermata segnapunti -->
     <div id="mainScreen">
         <div class="top-bar"></div>
         <div class="center-line"></div>
-        <button id="edit-left" class="editable-text">Clicca per modificare</button>
-        <button id="edit-right" class="editable-text">Clicca per modificare</button>
+        <button id="edit-left" class="editable-text">Squadra 1</button>
+        <button id="edit-right" class="editable-text">Squadra 2</button>
         <div class="score-section">
             <div class="score-box" id="score1">
                 <div class="score-points" id="points1">0</div>
@@ -236,168 +286,176 @@
         <audio id="finishSound" src="finish.mp3"></audio>
     </div>
     <script>
-        window.addEventListener('DOMContentLoaded', function() {
-            var introSound1 = document.getElementById('introSound1');
-            var introSound2 = document.getElementById('introSound2');
-            var fadeImg = document.getElementById('fadeImg');
-            var loadedImg = document.getElementById('loadedImg');
-            var startScreen = document.getElementById('startScreen');
-            var mainScreen = document.getElementById('mainScreen');
+        // Variabili globali
+        var introSound1, introSound2, fadeImg, loadedImg, startScreen, mainScreen, playButton;
+        var points1 = 0, points2 = 0;
+        var history1 = [], history2 = [];
+        var currentTeam = 1;
+        var timerActive = false;
+        var timerValue = 0;
+        var timerInterval = null;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            introSound1 = document.getElementById('introSound1');
+            introSound2 = document.getElementById('introSound2');
+            fadeImg = document.getElementById('fadeImg');
+            loadedImg = document.getElementById('loadedImg');
+            startScreen = document.getElementById('startScreen');
+            mainScreen = document.getElementById('mainScreen');
+            playButton = document.getElementById('playButton');
             
-            // Tenta l'autoplay all'avvio
+            // Mostra solo il pulsante all'inizio
+            playButton.style.display = 'block';
+            fadeImg.style.opacity = 0;
+            loadedImg.style.opacity = 0;
+            
+            // Aggiungi gestore per il pulsante
+            playButton.addEventListener('click', startGame);
+        });
+
+        function startGame() {
+            // Nascondi il pulsante immediatamente
+            playButton.style.display = 'none';
+            
+            // Riproduci GabroIntro.mp3
+            introSound1.play().catch(function(error) {
+                console.error("Errore nella riproduzione audio:", error);
+            });
+            
+            // Avvia l'animazione
+            fadeImg.style.opacity = 1;
             setTimeout(function() {
-                introSound1.play().catch(function(error) {
+                introSound2.play().catch(function(error) {
                     console.error("Errore nella riproduzione audio:", error);
-                    // Se l'autoplay fallisce, procedi comunque con l'animazione
-                    proceedWithAnimation();
+                });
+                loadedImg.style.opacity = 1;
+                setTimeout(function() {
+                    fadeImg.style.opacity = 0;
+                    setTimeout(function() {
+                        startScreen.style.display = "none";
+                        mainScreen.style.display = "block";
+                        initMainScreen();
+                    }, 1000);
+                }, 2000);
+            }, 2000);
+        }
+
+        function initMainScreen() {
+            makeEditable(document.getElementById('edit-left'));
+            makeEditable(document.getElementById('edit-right'));
+
+            updateScores();
+
+            document.getElementById('plus1Btn').onclick = function() {
+                if (currentTeam === 1) {
+                    points1++;
+                    history1.push(1);
+                    updateScores();
+                    document.getElementById('pointSound1').play().catch(()=>{});
+                }
+            };
+            
+            document.getElementById('plus2Btn').onclick = function() {
+                if (currentTeam === 2) {
+                    points2++;
+                    history2.push(1);
+                    updateScores();
+                    document.getElementById('pointSound2').play().catch(()=>{});
+                }
+            };
+
+            document.getElementById('skipBtn').onclick = function() {
+                currentTeam = currentTeam === 1 ? 2 : 1;
+                timerActive = false;
+                timerValue = 0;
+                document.getElementById('timerBtn').textContent = "Timer";
+                if (timerInterval) clearInterval(timerInterval);
+                document.getElementById('skipSound').play().catch(()=>{});
+            };
+
+            document.getElementById('timerBtn').onclick = function() {
+                if (!timerActive) {
+                    if (timerValue < 7) {
+                        timerValue++;
+                        this.textContent = timerValue + " min";
+                        document.getElementById('timerSound').play().catch(()=>{});
+                    }
+                    if (timerValue === 7) {
+                        this.textContent = "Timer";
+                        timerValue = 0;
+                    }
+                }
+            };
+
+            document.getElementById('skipBtn').addEventListener('click', function() {
+                if (timerValue > 0) {
+                    timerActive = true;
+                    var seconds = timerValue * 60;
+                    document.getElementById('timerBtn').textContent = timerValue + " min";
+                    timerInterval = setInterval(function() {
+                        seconds--;
+                        var minutes = Math.floor(seconds / 60);
+                        var remainingSeconds = seconds % 60;
+                        document.getElementById('timerBtn').textContent = minutes + ":" + (remainingSeconds < 10 ? "0" : "") + remainingSeconds;
+                        if (seconds <= 0) {
+                            clearInterval(timerInterval);
+                            timerActive = false;
+                            document.getElementById('timerBtn').textContent = "Timer";
+                            currentTeam = currentTeam === 1 ? 2 : 1;
+                        }
+                    }, 1000);
+                }
+            });
+
+            document.getElementById('finishBtn').onclick = function() {
+                var winner = points1 > points2 ? document.getElementById('edit-left').textContent : document.getElementById('edit-right').textContent;
+                if (points1 === points2) winner = "Pareggio";
+                document.getElementById('winnerName').textContent = winner;
+                document.getElementById('winner-modal').style.display = "block";
+                document.getElementById('winbandoleon').play().catch(()=>{});
+                document.getElementById('winbanjo').play().catch(()=>{});
+                document.getElementById('winfantasia').play().catch(()=>{});
+                document.getElementById('finishSound').play().catch(()=>{});
+            };
+        }
+
+        function updateScores() {
+            document.getElementById('points1').textContent = points1;
+            document.getElementById('points2').textContent = points2;
+            document.getElementById('history1').innerHTML = history1.map(function(p, i) {
+                return '<span>+' + p + '</span>' + (i < history1.length-1 ? '<span class="score-divider"></span>' : '');
+            }).join('');
+            document.getElementById('history2').innerHTML = history2.map(function(p, i) {
+                return '<span>+' + p + '</span>' + (i < history2.length-1 ? '<span class="score-divider"></span>' : '');
+            }).join('');
+        }
+
+        function makeEditable(btn) {
+            btn.addEventListener('click', function() {
+                var current = btn.textContent;
+                // Se il testo è "Clicca per modificare", svuota il campo
+                var inputValue = (current === "Clicca per modificare" || current === "Squadra 1" || current === "Squadra 2") ? "" : current;
+                
+                var input = document.createElement('input');
+                input.type = 'text';
+                input.value = inputValue;
+                input.style.fontSize = '1.2em';
+                input.style.textAlign = 'center';
+                input.style.width = '180px';
+                btn.replaceWith(input);
+                input.focus();
+                
+                input.addEventListener('blur', function() {
+                    btn.textContent = input.value || "Clicca per modificare";
+                    input.replaceWith(btn);
+                    makeEditable(btn);
                 });
                 
-                fadeImg.style.opacity = 1;
-                setTimeout(function() {
-                    introSound2.play().catch(function(error) {
-                        console.error("Errore nella riproduzione audio:", error);
-                    });
-                    loadedImg.style.opacity = 1;
-                    setTimeout(function() {
-                        fadeImg.style.opacity = 0;
-                        setTimeout(function() {
-                            startScreen.style.display = "none";
-                            mainScreen.style.display = "block";
-                            initMainScreen();
-                        }, 1000);
-                    }, 2000);
-                }, 2000);
-            }, 600);
-            
-            function proceedWithAnimation() {
-                fadeImg.style.opacity = 1;
-                setTimeout(function() {
-                    loadedImg.style.opacity = 1;
-                    setTimeout(function() {
-                        fadeImg.style.opacity = 0;
-                        setTimeout(function() {
-                            startScreen.style.display = "none";
-                            mainScreen.style.display = "block";
-                            initMainScreen();
-                        }, 1000);
-                    }, 2000);
-                }, 2000);
-            }
-
-            function initMainScreen() {
-                makeEditable(document.getElementById('edit-left'));
-                makeEditable(document.getElementById('edit-right'));
-
-                var points1 = 0, points2 = 0;
-                var history1 = [], history2 = [];
-                var currentTeam = 1;
-                var timerActive = false;
-                var timerValue = 0;
-                var timerInterval = null;
-
-                function updateScores() {
-                    document.getElementById('points1').textContent = points1;
-                    document.getElementById('points2').textContent = points2;
-                    document.getElementById('history1').innerHTML = history1.map(function(p, i) {
-                        return '<span>+' + p + '</span>' + (i < history1.length-1 ? '<span class="score-divider"></span>' : '');
-                    }).join('');
-                    document.getElementById('history2').innerHTML = history2.map(function(p, i) {
-                        return '<span>+' + p + '</span>' + (i < history2.length-1 ? '<span class="score-divider"></span>' : '');
-                    }).join('');
-                }
-                updateScores();
-
-                document.getElementById('plus1Btn').onclick = function() {
-                    if (currentTeam === 1) {
-                        points1++;
-                        history1.push(1);
-                        updateScores();
-                        document.getElementById('pointSound1').play().catch(()=>{});
-                    }
-                };
-                document.getElementById('plus2Btn').onclick = function() {
-                    if (currentTeam === 2) {
-                        points2++;
-                        history2.push(1);
-                        updateScores();
-                        document.getElementById('pointSound2').play().catch(()=>{});
-                    }
-                };
-
-                document.getElementById('skipBtn').onclick = function() {
-                    currentTeam = currentTeam === 1 ? 2 : 1;
-                    timerActive = false;
-                    timerValue = 0;
-                    document.getElementById('timerBtn').textContent = "Timer";
-                    if (timerInterval) clearInterval(timerInterval);
-                    document.getElementById('skipSound').play().catch(()=>{});
-                };
-
-                document.getElementById('timerBtn').onclick = function() {
-                    if (!timerActive) {
-                        if (timerValue < 7) {
-                            timerValue++;
-                            this.textContent = timerValue + " min";
-                            document.getElementById('timerSound').play().catch(()=>{});
-                        }
-                        if (timerValue === 7) {
-                            this.textContent = "Timer";
-                            timerValue = 0;
-                        }
-                    }
-                };
-
-                document.getElementById('skipBtn').addEventListener('click', function() {
-                    if (timerValue > 0) {
-                        timerActive = true;
-                        var seconds = timerValue * 60;
-                        document.getElementById('timerBtn').textContent = timerValue + " min";
-                        timerInterval = setInterval(function() {
-                            seconds--;
-                            document.getElementById('timerBtn').textContent = Math.floor(seconds / 60) + ":" + String(seconds % 60).padStart(2, '0');
-                            if (seconds <= 0) {
-                                clearInterval(timerInterval);
-                                timerActive = false;
-                                document.getElementById('timerBtn').textContent = "Timer";
-                                currentTeam = currentTeam === 1 ? 2 : 1;
-                            }
-                        }, 1000);
-                    }
+                input.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter') input.blur();
                 });
-
-                document.getElementById('finishBtn').onclick = function() {
-                    var winner = points1 > points2 ? document.getElementById('edit-left').textContent : document.getElementById('edit-right').textContent;
-                    if (points1 === points2) winner = "Pareggio";
-                    document.getElementById('winnerName').textContent = winner;
-                    document.getElementById('winner-modal').style.display = "block";
-                    document.getElementById('winbandoleon').play().catch(()=>{});
-                    document.getElementById('winbanjo').play().catch(()=>{});
-                    document.getElementById('winfantasia').play().catch(()=>{});
-                    document.getElementById('finishSound').play().catch(()=>{});
-                };
-            }
-
-            function makeEditable(btn) {
-                btn.addEventListener('click', function() {
-                    var current = btn.textContent;
-                    var input = document.createElement('input');
-                    input.type = 'text';
-                    input.value = current;
-                    input.style.fontSize = '1.2em';
-                    input.style.textAlign = 'center';
-                    btn.replaceWith(input);
-                    input.focus();
-                    input.addEventListener('blur', function() {
-                        btn.textContent = input.value || "Clicca per modificare";
-                        input.replaceWith(btn);
-                        makeEditable(btn);
-                    });
-                    input.addEventListener('keydown', function(e) {
-                        if (e.key === 'Enter') input.blur();
-                    });
-                });
-            }
-        });
+            });
+        }
     </script>
 </body>
 </html>
